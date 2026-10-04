@@ -7,33 +7,6 @@ CommGAT can be applied to both two-dimensional spatial transcriptomic data and a
 
 ---
 
-## Overview
-
-The CommGAT workflow consists of four major steps:
-
-1. **Data preprocessing**
-   - Normalize spatial gene expression data.
-   - Construct spatial neighboring cell pairs.
-   - Identify candidate LR-mediated communication edges.
-   - Calculate biological prior weights.
-   - Generate graph inputs for CommGAT.
-
-2. **CommGAT training**
-   - Encode cell expression profiles.
-   - Construct biological-prior-guided edge representations.
-   - Learn cell and edge representations using an edge-aware graph attention network.
-   - Optimize graph-level DGI and edge-level self-supervised objectives.
-
-3. **Multi-run inference**
-   - Train CommGAT independently using multiple random seeds.
-   - Save second-layer attention scores for each run.
-
-4. **Consensus communication inference**
-   - Aggregate attention scores across independent runs.
-   - Identify high-confidence LR communication edges.
-   - Generate cell-pair, cell-level, and LR-level communication summaries.
-
----
 
 ## Repository Structure
 
