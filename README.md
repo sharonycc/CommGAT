@@ -104,7 +104,7 @@ CommGAT requires the following information:
 - Cell identifiers
 - Cell-type annotations
 - Ligand-receptor database
-- Mouse TF-target regulatory database
+- TF-target regulatory database
 
 For the Xenium example, the preprocessing notebook expects an AnnData object containing gene expression and spatial information.
 
