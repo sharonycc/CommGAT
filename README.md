@@ -150,7 +150,7 @@ Users applying CommGAT to other datasets should modify these fields accordingly.
 The Xenium preprocessing workflow is provided in:
 
 ```text
-preprocess_xenium.ipynb
+preprocess.ipynb
 ```
 
 Before execution, specify the paths to:
