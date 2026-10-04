@@ -45,7 +45,7 @@ CommGAT/
 ├── GATv2Conv_CellNEST.py
 ├── epoch_eval_utils.py
 ├── postprocess_CommGAT.py
-├── preprocess_xenium.ipynb
+├── preprocess.ipynb
 ├── requirements.txt
 └── README.md
 ```
