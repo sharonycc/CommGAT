@@ -17,7 +17,7 @@ CommGAT/
 ├── CCC_gat.py
 ├── GATv2Conv_CommGAT.py
 ├── epoch_eval_utils.py
-├── postprocess_CommGAT.py
+├── output_postprocess.py
 ├── preprocess.ipynb
 ├── requirements.txt
 └── README.md
