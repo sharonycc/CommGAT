@@ -179,8 +179,7 @@ to calculate consensus communication scores.
 If you use CommGAT in your research, please cite:
 
 ```text
-CommGAT: Prior-Informed Self-Supervised Graph Attention
-for Spatial Cell-Cell Communication Inference
+CommGAT: Prior-Informed Self-Supervised Graph Attention for Spatial Cell-Cell Communication Inference
 ```
 
 Citation information will be updated upon publication.
