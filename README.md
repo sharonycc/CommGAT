@@ -52,14 +52,14 @@ Raw spatial transcriptomic datasets are **not included in this repository** and 
 Clone the repository:
 
 ```bash
-git clone <YOUR_COMM_GAT_REPOSITORY_URL>
+git clone https://github.com/sharonycc/CommGAT
 cd CommGAT
 ```
 
 Create a conda environment:
 
 ```bash
-conda create -n commgat python=3.10
+conda create -n commgat python=3.8
 conda activate commgat
 ```
 
