@@ -1,6 +1,5 @@
 # CommGAT
 
-**CommGAT: Prior-Informed Self-Supervised Graph Attention for Spatial Cell-Cell Communication Inference**
 
 CommGAT is a graph attention framework for inferring ligand-receptor-mediated cell-cell communication from single-cell-resolution spatial transcriptomic data.
 
