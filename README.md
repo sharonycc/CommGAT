@@ -15,7 +15,7 @@ CommGAT/
 │
 ├── run_CommGAT.py
 ├── CCC_gat.py
-├── GATv2Conv_CellNEST.py
+├── GATv2Conv_CommGAT.py
 ├── epoch_eval_utils.py
 ├── postprocess_CommGAT.py
 ├── preprocess.ipynb

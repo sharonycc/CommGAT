@@ -13,9 +13,7 @@ from sklearn.metrics import (
 
 
 def _safe_confusion_stats(y_true, y_pred):
-    """
-    返回 tn, fp, fn, tp
-    """
+
     cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
     if cm.shape != (2, 2):
         return 0, 0, 0, 0
@@ -24,9 +22,7 @@ def _safe_confusion_stats(y_true, y_pred):
 
 
 def _precision_at_k(y_true, y_score, k_ratio):
-    """
-    取分数最高的前 k_ratio 比例样本，计算其中正样本比例
-    """
+
     n = len(y_true)
     if n == 0:
         return np.nan
@@ -41,10 +37,7 @@ def _precision_at_k(y_true, y_score, k_ratio):
 
 
 def _fp_rate_at_k(y_true, y_score, k_ratio):
-    """
-    取分数最高的前 k_ratio 比例样本，计算其中假阳性比例
-    即 top-k 中 y_true==0 的比例
-    """
+
     n = len(y_true)
     if n == 0:
         return np.nan
@@ -59,20 +52,12 @@ def _fp_rate_at_k(y_true, y_score, k_ratio):
 
 
 def evaluate_pseudo_edge_scores(scores, labels, threshold=None, prefix=""):
-    """
-    scores: np.ndarray, shape [num_edges]
-    labels: np.ndarray, values in {0,1,-1}
-    -1 表示忽略
 
-    返回：
-      out: dict
-      threshold: float
-    """
     valid_idx = np.where(labels >= 0)[0]
     y_true = labels[valid_idx]
     y_score = scores[valid_idx]
 
-    # 如果没有有效样本
+
     if len(y_true) == 0:
         out = {
             f"{prefix} TN": np.nan,
@@ -97,7 +82,6 @@ def evaluate_pseudo_edge_scores(scores, labels, threshold=None, prefix=""):
         }
         return out, 0.5
 
-    # 若只有单类，AUROC 无法计算
     if len(np.unique(y_true)) < 2:
         out = {
             f"{prefix} TN": np.nan,
@@ -122,14 +106,12 @@ def evaluate_pseudo_edge_scores(scores, labels, threshold=None, prefix=""):
         }
         return out, 0.5
 
-    # 连续分数指标
     auroc = roc_auc_score(y_true, y_score)
     ap = average_precision_score(y_true, y_score)
 
     precision_curve, recall_curve, thresholds = precision_recall_curve(y_true, y_score)
     auprc = auc(recall_curve, precision_curve)
 
-    # 阈值：仍然默认用 F1 最大
     if threshold is None:
         f1_scores = 2 * (precision_curve * recall_curve) / (precision_curve + recall_curve + 1e-12)
         best_idx = np.nanargmax(f1_scores)
@@ -141,7 +123,6 @@ def evaluate_pseudo_edge_scores(scores, labels, threshold=None, prefix=""):
                 best_idx = len(thresholds) - 1
             threshold = thresholds[best_idx]
 
-    # 二值化
     y_pred = (y_score >= threshold).astype(int)
 
     acc = accuracy_score(y_true, y_pred)
@@ -153,7 +134,7 @@ def evaluate_pseudo_edge_scores(scores, labels, threshold=None, prefix=""):
     fpr = fp / (fp + tn + 1e-12)
     tnr = tn / (tn + fp + 1e-12)
 
-    # Top-k 重点指标
+
     p_at_1 = _precision_at_k(y_true, y_score, 0.01)
     p_at_5 = _precision_at_k(y_true, y_score, 0.05)
     p_at_10 = _precision_at_k(y_true, y_score, 0.10)

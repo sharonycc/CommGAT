@@ -13,7 +13,7 @@ from torch_geometric.data import Data, DataLoader
 import gzip, pickle
 from epoch_eval_utils import evaluate_pseudo_edge_scores
 
-from GATv2Conv_CellNEST import GATv2Conv
+from GATv2Conv_CommGAT import GATv2Conv
 
 def get_graph(training_data, expression_matrix_path=''):
     """Add Statement of Purpose
@@ -91,53 +91,6 @@ class ExpressionEncoder(nn.Module):
         return self.net(x)
 
 
-# class EdgeWeightScorer(nn.Module):
-#     """
-#     用于学习配受体介导细胞通信边的权重组合关系。
-#
-#     输入：
-#         z_i, z_j
-#         edge_cont = [cell_ij边权重, LR共表达, w1, w2, w3]
-#
-#     不直接输入 LR_ID 的连续编号，避免模型学习错误的大小关系。
-#     """
-#
-#     def __init__(self, node_dim, hidden_dim=128, dropout=0.1):
-#         super().__init__()
-#
-#         in_dim = node_dim * 4
-#
-#         self.net = nn.Sequential(
-#             nn.Linear(in_dim, hidden_dim),
-#             nn.GELU(),
-#             nn.Dropout(dropout),
-#             nn.Linear(hidden_dim, hidden_dim // 2),
-#             nn.GELU(),
-#             nn.Dropout(dropout),
-#             nn.Linear(hidden_dim // 2, 1)
-#         )
-#
-#     def forward(self, z, edge_index):
-#         src = edge_index[0]
-#         dst = edge_index[1]
-#
-#         z_src = z[src]
-#         z_dst = z[dst]
-#
-#         # edge_attr: [cell_weight, LR共表达, LR_ID, w1, w2, w3]
-#         # 保留 LR_ID 在 edge_attr 中，但不作为连续变量输入 scorer
-#         # edge_cont = edge_attr[:, [0, 1, 3, 4, 5]]
-#
-#         h = torch.cat([
-#             z_src,
-#             z_dst,
-#             z_src * z_dst,
-#             torch.abs(z_src - z_dst)
-#         ], dim=1)
-#
-#         logits = self.net(h).squeeze(-1)
-#
-#         return logits
 class Encoder(nn.Module):
     def __init__(self, in_channels, hidden_channels, heads, dropout):
         """Add Statement of Purpose
@@ -162,11 +115,8 @@ class Encoder(nn.Module):
         self.attention_scores_mine = 'attention'
         self.attention_scores_mine_unnormalized = 'attention_unnormalized'
 
-        #self.prelu = nn.Tanh(hidden_channels)
         self.prelu = nn.PReLU(hidden_channels)
 
-        # self.edge_scorer = EdgeWeightScorer(node_dim=hidden_channels, hidden_dim=128, dropout=dropout)
-        # self.edge_scores = None
 
 
 
@@ -193,8 +143,6 @@ class Encoder(nn.Module):
 
         ###############################
         z = self.prelu(x)
-        # edge_logits = self.edge_scorer(z=z, edge_index=data.edge_index)
-        # self.edge_scores = torch.sigmoid(edge_logits)
 
         return z #, attention_scores
 
@@ -223,13 +171,6 @@ def corruption(data, corrupt_ratio=0.3):
     corrupt_mask = torch.zeros(E, dtype=torch.bool, device=edge_attr_neg.device)
     corrupt_mask[corrupt_edges] = True
 
-    # edge_attr:
-    # 0: cell_ij边权重
-    # 1: LR共表达
-    # 2: LR_ID
-    # 3: w1
-    # 4: w2
-    # 5: w3
     lr_ids = edge_attr_neg[:, 2].long()
     cols_to_shuffle = [1, 3, 4, 5]
 
@@ -246,14 +187,7 @@ def corruption(data, corrupt_ratio=0.3):
     return my_data(x_neg, edge_index_neg, edge_attr_neg)
 
 def attention_contrastive_loss(real_att, fake_att, margin=0.05):
-    """
-    目标：
-        原始 edge_attr 下的 attention
-        >
-        同 LR_ID 内打乱 edge_attr 后的 attention
 
-    不使用伪标签。
-    """
 
     if isinstance(real_att, tuple):
         real_att = real_att[1]
@@ -278,11 +212,6 @@ def attention_contrastive_loss(real_att, fake_att, margin=0.05):
     )
 
 def make_hard_fake_edge_attr(edge_attr, corrupt_ratio=0.5):
-    """
-    无监督 hard negative:
-    在同一个 LR_ID 内部打乱 LR共表达、w1、w2、w3。
-    不使用伪标签乘积。
-    """
 
     fake = edge_attr.clone()
 
@@ -308,24 +237,7 @@ def make_hard_fake_edge_attr(edge_attr, corrupt_ratio=0.5):
 
     return fake
 
-# class TwoLossWeights(nn.Module):
-#     def __init__(self):
-#         super().__init__()
-#         self.raw_weights = nn.Parameter(torch.zeros(2))
 #
-#     def forward(self, dgi_loss, edge_loss):
-#         weights = torch.softmax(self.raw_weights, dim=0)
-#
-#         # total_loss = (
-#         #     weights[0] * dgi_loss
-#         #     + weights[1] * edge_loss
-#         # )
-#         total_loss = (
-#                 0.5 * dgi_loss
-#                 + 0.5 * edge_loss
-#         )
-
-        # return total_loss, weights.detach()
 class BoundedSumToOneLossWeight(nn.Module):
     def __init__(self, dgi_min=0.45, dgi_max=0.55):
         super().__init__()
@@ -347,27 +259,9 @@ class BoundedSumToOneLossWeight(nn.Module):
 
         return total_loss, lambda_dgi.detach(), lambda_att.detach()
 
-# class EdgePriorGate(nn.Module):
-#     def __init__(self, edge_dim=6, hidden_dim=32):
-#         super().__init__()
-#
-#         self.net = nn.Sequential(
-#             nn.Linear(5, hidden_dim),
-#             nn.GELU(),
-#             nn.Linear(hidden_dim, 1)
-#         )
-#
-#     def forward(self, edge_attr):
-#         # edge_attr: [cell_weight, LR共表达, LR_ID, w1, w2, w3]
-#         edge_cont = edge_attr[:, [0, 1, 3, 4, 5]]
-#
-#         # log1p 更适合乘性权重关系
-#         edge_cont = torch.log1p(torch.clamp(edge_cont, min=0.0))
-#
-#         return self.net(edge_cont).squeeze(-1)
 
 
-def train_CellNEST(args, data_loader, in_channels, pseudo_label_path=''):
+def train_CommGAT(args, data_loader, in_channels, pseudo_label_path=''):
 
     """Add Statement of Purpose
     Args: [to be]
@@ -377,7 +271,7 @@ def train_CellNEST(args, data_loader, in_channels, pseudo_label_path=''):
     """
     loss_curve = np.zeros((args.num_epoch//100+1))
     loss_curve_counter = 0
-################################
+
     metrics_records = []
     best_loss_metrics = None
 
@@ -388,8 +282,7 @@ def train_CellNEST(args, data_loader, in_channels, pseudo_label_path=''):
         pseudo_edge_labels = np.asarray(pseudo_edge_labels)
         print("Loaded pseudo edge labels from:", pseudo_label_path)
         print("Num labeled edges:", np.sum(pseudo_edge_labels >= 0))
-#################################
-    # device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     device = torch.device('cuda:0')
     DGI_model = DeepGraphInfomax(
         hidden_channels=args.hidden,
@@ -397,9 +290,6 @@ def train_CellNEST(args, data_loader, in_channels, pseudo_label_path=''):
         summary=lambda z, *args, **kwargs: torch.sigmoid(z.mean(dim=0)),#所有节点求均值，表示“整张真实图的全局表示”
         corruption=corruption).to(device)
     loss_weighter = BoundedSumToOneLossWeight().to(device)
-    #print('initialized DGI model')
-    #DGI_optimizer = torch.optim.Adam(DGI_model.parameters(), lr=0.005, weight_decay=5e-4)
-    # DGI_optimizer = torch.optim.Adam(DGI_model.parameters(), lr=args.lr_rate) #1e-5)#5 #6 #DGI_optimizer = torch.optim.RMSprop(DGI_model.parameters(), lr=1e-5)
     DGI_optimizer = torch.optim.Adam(list(DGI_model.parameters()) + list(loss_weighter.parameters()),lr=args.lr_rate)
     DGI_filename = args.model_path+'DGI_'+ args.model_name  +'.pth.tar'
 
@@ -509,23 +399,7 @@ def train_CellNEST(args, data_loader, in_channels, pseudo_label_path=''):
                     prefix="ATT"
                 )
 
-                # -------- 2) decoder 分数 --------
-                # pos_z 是当前 epoch 最后一个 batch 的正图节点 embedding
-                # current_dec_scores = edge_decoder_scores(pos_z, data.edge_index)
-                # current_dec_scores = current_dec_scores.detach().cpu().numpy()
-                #
-                # current_dec_scores = DGI_model.encoder.edge_scores
-                # current_dec_scores = current_dec_scores.detach().cpu().numpy()
-                #
-                # dec_metrics, dec_threshold = evaluate_pseudo_edge_scores(
-                #     scores=current_dec_scores,
-                #     labels=pseudo_edge_labels,
-                #     threshold=None,
-                #     prefix="DEC"
-                # )
-
-
-            # ===== 记录每轮结果 =====
+               
             metrics_records.append({
                 "Epoch": epoch + 1,
                 "Loss": float(current_loss),
@@ -538,14 +412,14 @@ def train_CellNEST(args, data_loader, in_channels, pseudo_label_path=''):
                 **att_metrics
             })
 
-            # 每轮都写一次 csv
+            
             metrics_df = pd.DataFrame(metrics_records)
             metrics_df.to_csv(
                 args.model_path + 'DGI_' + args.model_name + '_pseudo_metrics.csv',
                 index=False
             )
 
-            # ===== 最优 loss 时保存模型 + embedding + attention =====
+         
             if current_loss < min_loss:
                 min_loss = current_loss
 
@@ -556,7 +430,6 @@ def train_CellNEST(args, data_loader, in_channels, pseudo_label_path=''):
                 }
 
 
-                ######## save the current model state ########los最小时候的模型
                 torch.save({
                     'epoch': epoch,
                     'model_state_dict': DGI_model.state_dict(),
@@ -565,36 +438,30 @@ def train_CellNEST(args, data_loader, in_channels, pseudo_label_path=''):
                     'loss': min_loss,
                     }, DGI_filename)
 
-                ##################################################
-                # save the node embedding
                 X_embedding = pos_z #embeding
                 X_embedding = X_embedding.cpu().detach().numpy()
                 X_embedding_filename =  args.embedding_path + args.model_name + '_Embed_X' #.npy
                 with gzip.open(X_embedding_filename, 'wb') as fp:  
                     pickle.dump(X_embedding, fp)
                                     
-                # save the attention scores
                 X_attention_index = DGI_model.encoder.attention_scores_mine[0]
                 X_attention_index = X_attention_index.cpu().detach().numpy()
 
-                # layer 1
                 X_attention_score_normalized_l1 = DGI_model.encoder.attention_scores_mine_l1[1]
                 X_attention_score_normalized_l1 = X_attention_score_normalized_l1.cpu().detach().numpy()
-                # layer 1 unnormalized
+           
                 X_attention_score_unnormalized_l1 = DGI_model.encoder.attention_scores_mine_unnormalized_l1
                 X_attention_score_unnormalized_l1 = X_attention_score_unnormalized_l1.cpu().detach().numpy()
 
-                # layer 2
+
                 X_attention_score_normalized = DGI_model.encoder.attention_scores_mine[1]
                 X_attention_score_normalized = X_attention_score_normalized.cpu().detach().numpy()
-                # layer 2 unnormalized
                 X_attention_score_unnormalized = DGI_model.encoder.attention_scores_mine_unnormalized
                 X_attention_score_unnormalized = X_attention_score_unnormalized.cpu().detach().numpy()
 
                 print('making the bundle to save')
                 X_attention_bundle = [X_attention_index, X_attention_score_normalized_l1, X_attention_score_unnormalized, X_attention_score_unnormalized_l1, X_attention_score_normalized]
                 X_attention_filename =  args.embedding_path + args.model_name + '_attention' #.npy
-                # np.save(X_attention_filename, X_attention_bundle) # this is deprecated
                 with gzip.open(X_attention_filename, 'wb') as fp:  
                     pickle.dump(X_attention_bundle, fp)
 
@@ -602,10 +469,6 @@ def train_CellNEST(args, data_loader, in_channels, pseudo_label_path=''):
                 np.savetxt(logfile,loss_curve, delimiter=',')
                 logfile.close()
 
-                #print(DGI_model.encoder.attention_scores_mine_unnormalized_l1[0:10])
-
-#            if ((epoch)%60000) == 0:
-#                DGI_optimizer = torch.optim.Adam(DGI_model.parameters(), lr=1e-6)  #5 #6
 
     end_time = datetime.datetime.now()
 
@@ -625,7 +488,6 @@ def train_CellNEST(args, data_loader, in_channels, pseudo_label_path=''):
     DGI_loss = DGI_model.loss(pos_z, neg_z, summary)
     print("debug loss latest tupple %g"%DGI_loss.item())
 
-    # ===== 训练结束后，把最优 loss 对应指标追加到最后 =====
     if len(metrics_records) > 0:
         metrics_df = pd.DataFrame(metrics_records)
 
