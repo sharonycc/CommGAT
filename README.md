@@ -30,9 +30,8 @@ CommGAT/
 │
 ├── data/
 │   ├── Xenium/
+│   ├── TF/
 │   └── LR/
-│
-├── database/
 │
 ├── outp/
 │   ├── input_graph/
@@ -122,9 +121,11 @@ Example directory structure:
 data/
 └── LR/
     └── Cell_mouse_database.csv
+└── TF/
+    └── mouse_tf_target.csv
 
-database/
-└── mouse_tf_target.csv
+
+
 ```
 
 The Xenium preprocessing implementation currently uses:
